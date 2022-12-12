@@ -1,0 +1,232 @@
+#########
+ Testing
+#########
+
+Testing code is important part of write code. Properly written check if newly written function works properly.
+
+When using code long time there are situation where some modification of existing function need to be introduced.
+Sometimes funchtions from third party packages break backward compatybility. Existing test set allow to fast
+and precise discover place in code which produce error.
+
+There ar multiple test framework for Python. During this classes we will focus on ``pytest``.
+There exist builtin python frameworks Doctest [#doctest_doc]_ and Unittest [#unittest_doc]_, but
+currently pytest offer better environment
+
+Introduction
+############
+
+One of most popular testing framework for python.
+To use ``pytest`` use simple ``pytest`` or ``python -m pytest`` command in terminal.
+
+.. code-block::
+
+    $ pytest
+    ====================================== test session starts =======================================
+    platform linux -- Python 3.8.3, pytest-5.4.3, py-1.9.0, pluggy-0.13.1
+    rootdir: /../python-tools/testing
+    collected 183 items
+
+    code/test_conditional.py ss                                                                [  1%]
+    code/test_parametrize.py ................................................................. [ 36%]
+    .................................                                                          [ 54%]
+    code/test_parametrize_exercise.py ........................................................ [ 85%]
+    .........................                                                                  [ 98%]
+    code/test_xfail.py .x                                                                      [100%]
+
+    =========================== 180 passed, 2 skipped, 1 xfailed in 0.21s ============================
+
+
+Pytest search for test function inside ``test_*.py`` or ``*_test.py`` files and collect
+functions with ``test_`` prefix [#test_discovery]_.
+
+.. include:: code/test_sample.py
+   :code: python
+
+Exercise 1
+^^^^^^^^^^
+
+Write tests for masked sum function:
+
+.. code-block:: python
+
+    def mask_sum(data, mask):
+        res = 0
+        for val, mask_val in zip(data, mask):
+           if mask_val != 0:
+                res += val
+        return res
+
+Parametrization
+###############
+
+
+Fail of test function which iterate over parameters of tested function (ex. faster implementation)
+inform only about one set of parameters and need to be executed under debugger to extract problematic parameters.
+
+Parametrize of test function is extracting such iteration outside test function and produce clean failure information.
+To do it in pytest use ``pytest.mark.parametrize`` decorator.
+
+.. include:: code/test_parametrize.py
+   :code: python
+
+More information here: https://docs.pytest.org/en/stable/example/parametrize.html
+
+Exercise 2
+^^^^^^^^^^
+
+Read code from ``code/test_parametrize_exercise.py`` file.
+Find bug in ``norm`` function. Using ``@pytest.mark.parametrize`` modify ``test_norm``
+or create a new tests function to cover missed cases.
+
+Exercise 3
+^^^^^^^^^^
+
+Base on ``mask_sum`` from *Exercise 1* write function ``mask_aggregation`` with signature:
+
+.. code-block:: python
+
+    mask_aggregation(agg_operator: Callable[[float, float], float], data: List[float], mask: List[bool]) -> float
+
+where ``agg_operator`` implements any associative operation (like ``operator.add``).
+Test it using few such operators (see https://docs.python.org/3.4/library/operator.html) and few
+data points by parametrizing test with ``pytest.mark.parametrize``
+
+Conditional execution
+#####################
+
+
+The most common source of test fail are bugs in implementation.
+But tests may also fail because lack of some resources like:
+
+- Test data
+- Libraries
+- Operating system
+- Python version
+
+It is better to skip such test, than get useless fail report.
+Test could be skipped every time using ``pytest.mark.skip`` decorator
+or ``pytest.skip`` call inside test function.
+
+If condition for function skip could be called outside test function
+then ``pytest.mark.skipif`` decorator.
+
+.. include:: code/test_conditional.py
+   :code: python
+
+Documentation: https://docs.pytest.org/en/latest/skipping.html
+
+Exercise 4
+^^^^^^^^^^
+
+Create test for ``math.dist`` function. Knowing that this function is introduced in python 3.8
+use ``pytest.mark.skipif`` to skip this function test on python 3.7 and earlier.
+
+Expected failure
+################
+
+There are cases where current implementation of tested function does not satisfy specification.
+For example it could be caused by bug in external package.
+Instead of skipping test and manually check when test starts working
+there is option to mark test as expected to fail.
+Then if test pass it is reported as unexpected pass.
+To mark test as expected to fail use ``pytest.mark.xfail`` decorator.
+
+.. include:: code/test_xfail.py
+   :code: python
+
+Documentation: https://docs.pytest.org/en/latest/skipping.html#xfail-mark-test-functions-as-expected-to-fail
+
+
+Fixtures
+########
+
+    A software test fixture sets up a system for the software testing process by initializing it,
+    thereby satisfying any preconditions the system may have. [#fixtures_wikipedia]_
+
+In ``pytest`` fixtures are passed as function arguments. Its usage allows to shorten non essential parts of test code.
+More interesting builtin fixtures are
+
+* ``capsys`` - cap standard output and standard error output. Allow to check if proper information are printed
+* ``monkeypatch`` - patch only in this test. Among other things,
+  it allows to set environment variables or replace some time consuming function with dummy one.
+* ``tmp_path`` - path to unique temporary directory. Especially useful when testing save operation.
+
+Documentation: https://docs.pytest.org/en/stable/fixture.html
+
+Capsys
+^^^^^^
+``capsys`` fixture provide ``readouterr`` method which return namedtuple object with two fields
+``out`` and ``err``
+
+.. code-block:: python
+
+    def test_output(capsys):
+        print("hello")
+        captured = capsys.readouterr()
+        assert captured.out == "hello\n"
+
+Exercise 5
+~~~~~~~~~~
+
+Using ``capsys`` fixture write test for function:
+
+.. code-block:: python
+
+    def print_info(val: int):
+        if val < 0:
+            print("Value need to beat least 0, not, val, file=sys.stderr)
+        if val % 2 == 0:
+            print(f"Value {val} is even")
+        else:
+            print(f"Value {val} is odd")
+
+Monkeypatch
+^^^^^^^^^^^
+Official documentation: https://docs.pytest.org/en/stable/monkeypatch.html
+
+Documentation: https://docs.pytest.org/en/stable/reference.html#std-fixture-monkeypatch
+
+Exercise 6
+~~~~~~~~~~
+Using ``monkeypatch`` fixture for manipulate environment variables test following function
+
+.. code-block:: python
+
+    def get_config():
+        return int(os.environ.get("VERBOSITY", 0)
+
+
+Exercise 7
+~~~~~~~~~~
+Using ``monkeypatch`` to mock ``request.get`` or ``get_courses`` function and create tests for ``calc_statistics``
+from ``code/nbp_course_change/nbp_change.py``. Test should be placed in ``code/nbp_course_change/test_nbp.py``.
+Test should not make web requests.
+NBP api description is available here: http://api.nbp.pl/
+
+
+Exception test
+##############
+
+``pytest`` support testing if an exception is raised. Bellow are few examples:
+
+.. include:: code/test_exception_handle.py
+   :code: python
+
+Exercise 8
+^^^^^^^^^^
+
+Using ``pytest.raises`` write test function for different types of keys in dictionary.
+
+*   int
+*   str
+*   Tuple[int, str]
+*   list
+*   Tuple[list, int]
+
+Som of them are not proper dict keys and try of its usage should be captured by ``pytest.raises``.
+
+
+.. [#doctest_doc] https://docs.python.org/3/library/doctest.html
+.. [#unittest_doc] https://docs.python.org/3/library/unittest.html
+.. [#test_discovery] https://docs.pytest.org/en/stable/goodpractices.html#test-discovery
+.. [#fixtures_wikipedia] https://en.wikipedia.org/wiki/Test_fixture#Software
